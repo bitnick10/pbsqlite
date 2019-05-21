@@ -11,11 +11,12 @@ TEST(bpsqlite, Base) {
     Person person2;
     person2.set_id(2);
     person2.set_name("David");
-    SQLite::Database db("example.db", SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE);
-    pbsqlite::CreateTableIfNotExists(db, person, "id");
-    pbsqlite::ReplaceInto(db, person);
-    pbsqlite::ReplaceInto(db, person2);
-    std::vector<Person> rs = pbsqlite::Select<Person>(db, "WHERE id>=0");
+    pbsqlite::Database db("example.db", SQLite::OPEN_CREATE | SQLite::OPEN_READWRITE);
+    db.CreateTableIfNotExists(person, "id");
+    db.ReplaceInto(person);
+    db.ReplaceInto(person2);
+
+    std::vector<Person> rs = db.Select<Person>("WHERE id>=0");
 
     EXPECT_TRUE(rs.size() >= 2);
     EXPECT_EQ(rs[0].id(), 0);
