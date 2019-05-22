@@ -109,7 +109,9 @@ public:
              const int          aFlags = SQLite::OPEN_READONLY,
              const int          aBusyTimeoutMs = 0,
              const std::string& aVfs = "") : SQLite::Database(aFilename, aFlags, aBusyTimeoutMs, aVfs) {
-
+        if ((aFlags & SQLite::OPEN_CREATE) && (aFlags & SQLite::OPEN_READWRITE)) {
+            createStoreTable();
+        }
     }
 
     template<typename T>
@@ -159,8 +161,23 @@ public:
     void ReplaceInto(const google::protobuf::Message& m) {
         exec(ToInsertString(m, "REPLACE INTO"));
     }
-    void CreateStoreTable() {
-        std::string query = fmt::format("CREATE TABLE if not exists {0} (id TEXT,value TEXT,PRIMARY KEY (id)));", "pbstore");
+public:
+    void Save(const std::string& id, const std::string& value) {
+        std::string query = fmt::format("REPLACE INTO pbstore VALUES('{0}','{1}')", id, value);
+        exec(query);
+    }
+    std::string Get(const std::string& id) {
+        std::string value;
+        std::string query = fmt::format("SELECT value from pbstore WHERE id = '{0}'", id);
+        SQLite::Statement stmt(*this, query);
+        while (stmt.executeStep()) {
+            value = stmt.getColumn(0).getString();
+        }
+        return value;
+    }
+private:
+    void createStoreTable() {
+        std::string query = fmt::format("CREATE TABLE if not exists {0} (id TEXT,value TEXT,PRIMARY KEY (id));", "pbstore");
         exec(query);
     }
 };
