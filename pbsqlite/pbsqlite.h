@@ -95,6 +95,7 @@ inline std::string ToInsertString(const google::protobuf::Message& m, const std:
             query += fmt::format("{0},", refl->GetDouble(m, field));
             break;
         default:
+            assert(false);
             break;
         }
     }
@@ -145,6 +146,7 @@ public:
                     refl->SetDouble(&m, field, stmt.getColumn(i).getDouble());
                     break;
                 default:
+                    assert(false);
                     break;
                 }
             }
@@ -163,8 +165,9 @@ public:
     }
 public:
     void Save(const std::string& id, const std::string& value) {
-        std::string query = fmt::format("REPLACE INTO pbstore VALUES('{0}','{1}')", id, value);
-        exec(query);
+        SQLite::Statement stmt(*this, fmt::format("REPLACE INTO pbstore VALUES('{0}',?);", id));
+        stmt.bind(1, value);
+        stmt.exec();
     }
     std::string Get(const std::string& id) {
         std::string value;
