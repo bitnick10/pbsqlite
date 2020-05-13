@@ -83,16 +83,16 @@ inline std::string ToInsertString(const google::protobuf::Message& m, const std:
             query += fmt::format("'{0}',", refl->GetString(m, field));
             break;
         case google::protobuf::FieldDescriptor::CPPTYPE_INT32:
-            query += fmt::format("{0},", refl->GetInt32(m, field));
+            query += std::to_string(refl->GetInt32(m, field)) + ",";
             break;
         case google::protobuf::FieldDescriptor::CPPTYPE_INT64:
-            query += fmt::format("{0},", refl->GetInt64(m, field));
+            query += std::to_string(refl->GetInt64(m, field)) + ",";
             break;
         case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
-            query += fmt::format("{0},", refl->GetFloat(m, field));
+            query += std::to_string(refl->GetFloat(m, field)) + ","; // fmt::format("{0},", refl->GetFloat(m, field));
             break;
         case google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
-            query += fmt::format("{0},", refl->GetDouble(m, field));
+            query += std::to_string(refl->GetDouble(m, field)) + ",";// fmt::format("{0},", refl->GetDouble(m, field));
             break;
         default:
             assert(false);
