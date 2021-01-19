@@ -89,10 +89,10 @@ inline std::string ToInsertString(const google::protobuf::Message& m, const std:
             query += std::to_string(refl->GetInt64(m, field)) + ",";
             break;
         case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
-            query += std::to_string(refl->GetFloat(m, field)) + ","; // fmt::format("{0},", refl->GetFloat(m, field));
+            query += std::to_string(refl->GetFloat(m, field)) + ",";
             break;
         case google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
-            query += std::to_string(refl->GetDouble(m, field)) + ",";// fmt::format("{0},", refl->GetDouble(m, field));
+            query += std::to_string(refl->GetDouble(m, field)) + ",";
             break;
         default:
             assert(false);
@@ -153,6 +153,10 @@ public:
             ret.push_back(m);
         }
         return ret;
+    }
+    bool TableExists(const google::protobuf::Message& m) {
+        auto desc = m.GetDescriptor();
+        return tableExists(desc->name());
     }
     void CreateTableIfNotExists(const google::protobuf::Message& m, const std::string& primaryKey) {
         exec(ToCreateTableQuery(m, primaryKey));
