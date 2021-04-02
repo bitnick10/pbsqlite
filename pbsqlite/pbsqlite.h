@@ -85,12 +85,14 @@ inline std::string ToCreateTableQuery(const google::protobuf::Message& m, const 
 
 
 
-inline std::string ToInsertString(const google::protobuf::Message& m, const std::string& insertType = "INSERT INTO") {
+inline std::string ToInsertString(const google::protobuf::Message& m, const std::string& tableName = "", const std::string& insertType = "INSERT INTO") {
 	using namespace google::protobuf;
 	const Descriptor* desc = m.GetDescriptor();
 	const Reflection* refl = m.GetReflection();
-	std::string tableName = desc->name();
-	std::string query = fmt::format("{0} {1} VALUES(", insertType, tableName);
+	std::string finalTableName = tableName;
+	if (finalTableName.empty())
+		finalTableName = desc->name();
+	std::string query = fmt::format("{0} {1} VALUES(", insertType, finalTableName);
 	int fieldCount = desc->field_count();
 
 	for (int i = 0; i < fieldCount; i++) {
@@ -206,6 +208,62 @@ private:
 	void createStoreTable() {
 		std::string query = fmt::format("CREATE TABLE if not exists {0} (id TEXT,value TEXT,PRIMARY KEY (id));", "pbstore");
 		exec(query);
+	}
+};
+
+class Table {
+	Database& db_;
+	std::string table_name_;
+public:
+	const std::string& table_name() const { return table_name_; }
+public:
+	Table(Database& db, const std::string& tableName) :db_(db) {
+		//this->db_ = db;
+		this->table_name_ = tableName;
+	}
+	void InsertInto(const google::protobuf::Message& m) {
+		db_.exec(ToInsertString(m, table_name(), "INSERT INTO"));
+	}
+	void ReplaceInto(const google::protobuf::Message& m) {
+		db_.exec(ToInsertString(m, table_name(), "REPLACE INTO"));
+	}
+	template<typename T>
+	std::vector<T> Select(const std::string& condition = "") {
+		std::vector<T> ret;
+		T m;
+		using namespace google::protobuf;
+		const Descriptor* desc = m.GetDescriptor();
+		const Reflection* refl = m.GetReflection();
+		int fieldCount = desc->field_count();
+		std::string query = fmt::format("SELECT * FROM {0} {1}", table_name(), condition);
+		SQLite::Statement stmt(this->db_, query);
+		while (stmt.executeStep()) {
+			for (int i = 0; i < fieldCount; i++) {
+				const FieldDescriptor* field = desc->field(i);
+				switch (field->cpp_type()) {
+				case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
+					refl->SetString(&m, field, stmt.getColumn(i).getString());
+					break;
+				case google::protobuf::FieldDescriptor::CPPTYPE_INT32:
+					refl->SetInt32(&m, field, stmt.getColumn(i).getInt());
+					break;
+				case google::protobuf::FieldDescriptor::CPPTYPE_INT64:
+					refl->SetInt64(&m, field, stmt.getColumn(i).getInt64());
+					break;
+				case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
+					refl->SetFloat(&m, field, stmt.getColumn(i).getDouble());
+					break;
+				case google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
+					refl->SetDouble(&m, field, stmt.getColumn(i).getDouble());
+					break;
+				default:
+					assert(false);
+					break;
+				}
+			}
+			ret.push_back(m);
+		}
+		return ret;
 	}
 };
 }
