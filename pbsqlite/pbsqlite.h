@@ -83,9 +83,12 @@ inline std::string ToCreateTableQuery(const google::protobuf::Message& m, const 
 	return ToCreateTableQuery(m, tableName, primaryKey);
 }
 
+inline std::string desc_name(const google::protobuf::Message& m) {
+	const google::protobuf::Descriptor* desc = m.GetDescriptor();
+	return desc->name();
+}
 
-
-inline std::string ToInsertString(const google::protobuf::Message& m, const std::string& tableName = "", const std::string& insertType = "INSERT INTO") {
+inline std::string ToInsertString(const google::protobuf::Message& m, const std::string& tableName, const std::string& insertType) {
 	using namespace google::protobuf;
 	const Descriptor* desc = m.GetDescriptor();
 	const Reflection* refl = m.GetReflection();
@@ -184,10 +187,19 @@ public:
 		exec(ToCreateTableQuery(m, tableName, primaryKey));
 	}
 	void InsertInto(const google::protobuf::Message& m) {
-		exec(ToInsertString(m));
+		exec(ToInsertString(m, "", "INSERT INTO"));
 	}
 	void ReplaceInto(const google::protobuf::Message& m) {
-		exec(ToInsertString(m, "REPLACE INTO"));
+		exec(ToInsertString(m, "", "REPLACE INTO"));
+	}
+	int table_count() {
+		int value;
+		std::string query = fmt::format("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name != 'sqlite_sequence';");
+		SQLite::Statement stmt(*this, query);
+		while (stmt.executeStep()) {
+			value = stmt.getColumn(0).getInt();
+		}
+		return value;
 	}
 public:
 	void Save(const std::string& id, const std::string& value) {
