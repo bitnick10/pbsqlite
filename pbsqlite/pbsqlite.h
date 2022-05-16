@@ -52,7 +52,8 @@ inline std::string GetSQLiteTypeName(const std::string& messageTypeName) {
 	return "TEXT";
 }
 
-inline std::string ToCreateTableQuery(const google::protobuf::Message& m, const std::string& tableName, const std::string& primaryKey) {
+template<typename T>
+inline std::string ToCreateTableQuery(const T& m, const std::string& tableName, const std::string& primaryKey) {
 	using namespace google::protobuf;
 	const Descriptor* desc = m.GetDescriptor();
 	const Reflection* refl = m.GetReflection();
@@ -67,19 +68,11 @@ inline std::string ToCreateTableQuery(const google::protobuf::Message& m, const 
 	return query;
 }
 
-inline std::string ToCreateTableQuery(const google::protobuf::Message& m, const std::string& primaryKey) {
+template<typename T>
+inline std::string ToCreateTableQuery(const T& m, const std::string& primaryKey) {
 	using namespace google::protobuf;
 	const Descriptor* desc = m.GetDescriptor();
 	std::string tableName = desc->name();
-	//std::string query = fmt::format("CREATE TABLE if not exists {0} (", tableName);
-	//int fieldCount = desc->field_count();
-
-	//for (int i = 0; i < fieldCount; i++) {
-	//	const FieldDescriptor* field = desc->field(i);
-	//	query += fmt::format("{0} {1},", field->name(), GetSQLiteTypeName(field->type_name()));
-	//}
-	//query += "PRIMARY KEY (" + primaryKey + "));";
-	//return query;
 	return ToCreateTableQuery(m, tableName, primaryKey);
 }
 
@@ -88,7 +81,8 @@ inline std::string desc_name(const google::protobuf::Message& m) {
 	return desc->name();
 }
 
-inline std::string ToInsertString(const google::protobuf::Message& m, const std::string& tableName, const std::string& insertType) {
+template<typename T>
+inline std::string ToInsertString(const T& m, const std::string& tableName, const std::string& insertType) {
 	using namespace google::protobuf;
 	const Descriptor* desc = m.GetDescriptor();
 	const Reflection* refl = m.GetReflection();
@@ -98,27 +92,54 @@ inline std::string ToInsertString(const google::protobuf::Message& m, const std:
 	std::string query = fmt::format("{0} {1} VALUES(", insertType, finalTableName);
 	int fieldCount = desc->field_count();
 
-	for (int i = 0; i < fieldCount; i++) {
-		const FieldDescriptor* field = desc->field(i);
-		switch (field->cpp_type()) {
-		case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
-			query += fmt::format("'{0}',", refl->GetString(m, field));
-			break;
-		case google::protobuf::FieldDescriptor::CPPTYPE_INT32:
-			query += std::to_string(refl->GetInt32(m, field)) + ",";
-			break;
-		case google::protobuf::FieldDescriptor::CPPTYPE_INT64:
-			query += std::to_string(refl->GetInt64(m, field)) + ",";
-			break;
-		case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
-			query += std::to_string(refl->GetFloat(m, field)) + ",";
-			break;
-		case google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
-			query += std::to_string(refl->GetDouble(m, field)) + ",";
-			break;
-		default:
-			assert(false);
-			break;
+	if constexpr (std::is_base_of_v<google::protobuf::Message, T>) {
+		for (int i = 0; i < fieldCount; i++) {
+			const FieldDescriptor* field = desc->field(i);
+			switch (field->cpp_type()) {
+			case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
+				query += fmt::format("'{0}',", refl->GetString(m, field));
+				break;
+			case google::protobuf::FieldDescriptor::CPPTYPE_INT32:
+				query += std::to_string(refl->GetInt32(m, field)) + ",";
+				break;
+			case google::protobuf::FieldDescriptor::CPPTYPE_INT64:
+				query += std::to_string(refl->GetInt64(m, field)) + ",";
+				break;
+			case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
+				query += std::to_string(refl->GetFloat(m, field)) + ",";
+				break;
+			case google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
+				query += std::to_string(refl->GetDouble(m, field)) + ",";
+				break;
+			default:
+				assert(false);
+				break;
+			}
+		}
+	}
+	else {
+		for (int i = 0; i < fieldCount; i++) {
+			const FieldDescriptor* field = desc->field(i);
+			switch (field->cpp_type()) {
+			case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
+				query += fmt::format("'{0}',", refl->GetString(m.buf, field));
+				break;
+			case google::protobuf::FieldDescriptor::CPPTYPE_INT32:
+				query += std::to_string(refl->GetInt32(m.buf, field)) + ",";
+				break;
+			case google::protobuf::FieldDescriptor::CPPTYPE_INT64:
+				query += std::to_string(refl->GetInt64(m.buf, field)) + ",";
+				break;
+			case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
+				query += std::to_string(refl->GetFloat(m.buf, field)) + ",";
+				break;
+			case google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
+				query += std::to_string(refl->GetDouble(m.buf, field)) + ",";
+				break;
+			default:
+				assert(false);
+				break;
+			}
 		}
 	}
 	query.pop_back();
@@ -148,31 +169,61 @@ public:
 		std::string tableName = desc->name();
 		std::string query = fmt::format("SELECT * FROM {0} {1}", tableName, condition);
 		SQLite::Statement stmt(*this, query);
-		while (stmt.executeStep()) {
-			for (int i = 0; i < fieldCount; i++) {
-				const FieldDescriptor* field = desc->field(i);
-				switch (field->cpp_type()) {
-				case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
-					refl->SetString(&m, field, stmt.getColumn(i).getString());
-					break;
-				case google::protobuf::FieldDescriptor::CPPTYPE_INT32:
-					refl->SetInt32(&m, field, stmt.getColumn(i).getInt());
-					break;
-				case google::protobuf::FieldDescriptor::CPPTYPE_INT64:
-					refl->SetInt64(&m, field, stmt.getColumn(i).getInt64());
-					break;
-				case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
-					refl->SetFloat(&m, field, stmt.getColumn(i).getDouble());
-					break;
-				case google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
-					refl->SetDouble(&m, field, stmt.getColumn(i).getDouble());
-					break;
-				default:
-					assert(false);
-					break;
+		if constexpr (std::is_base_of_v<google::protobuf::Message, T>) {
+			while (stmt.executeStep()) {
+				for (int i = 0; i < fieldCount; i++) {
+					const FieldDescriptor* field = desc->field(i);
+					switch (field->cpp_type()) {
+					case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
+						refl->SetString(&m, field, stmt.getColumn(i).getString());
+						break;
+					case google::protobuf::FieldDescriptor::CPPTYPE_INT32:
+						refl->SetInt32(&m, field, stmt.getColumn(i).getInt());
+						break;
+					case google::protobuf::FieldDescriptor::CPPTYPE_INT64:
+						refl->SetInt64(&m, field, stmt.getColumn(i).getInt64());
+						break;
+					case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
+						refl->SetFloat(&m, field, stmt.getColumn(i).getDouble());
+						break;
+					case google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
+						refl->SetDouble(&m, field, stmt.getColumn(i).getDouble());
+						break;
+					default:
+						assert(false);
+						break;
+					}
 				}
+				ret.push_back(m);
 			}
-			ret.push_back(m);
+		}
+		else {
+			while (stmt.executeStep()) {
+				for (int i = 0; i < fieldCount; i++) {
+					const FieldDescriptor* field = desc->field(i);
+					switch (field->cpp_type()) {
+					case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
+						refl->SetString(&m.buf, field, stmt.getColumn(i).getString());
+						break;
+					case google::protobuf::FieldDescriptor::CPPTYPE_INT32:
+						refl->SetInt32(&m.buf, field, stmt.getColumn(i).getInt());
+						break;
+					case google::protobuf::FieldDescriptor::CPPTYPE_INT64:
+						refl->SetInt64(&m.buf, field, stmt.getColumn(i).getInt64());
+						break;
+					case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
+						refl->SetFloat(&m.buf, field, stmt.getColumn(i).getDouble());
+						break;
+					case google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
+						refl->SetDouble(&m.buf, field, stmt.getColumn(i).getDouble());
+						break;
+					default:
+						assert(false);
+						break;
+					}
+				}
+				ret.push_back(m);
+			}
 		}
 		return ret;
 	}
@@ -180,16 +231,20 @@ public:
 		auto desc = m.GetDescriptor();
 		return tableExists(desc->name());
 	}
-	void CreateTableIfNotExists(const google::protobuf::Message& m, const std::string& primaryKey) {
+	template<typename T>
+	void CreateTableIfNotExists(const T& m, const std::string& primaryKey) {
 		exec(ToCreateTableQuery(m, primaryKey));
 	}
-	void CreateTableIfNotExists(const google::protobuf::Message& m, const std::string& tableName, const std::string& primaryKey) {
+	template<typename T>
+	void CreateTableIfNotExists(const T& m, const std::string& tableName, const std::string& primaryKey) {
 		exec(ToCreateTableQuery(m, tableName, primaryKey));
 	}
-	void InsertInto(const google::protobuf::Message& m) {
+	template<typename T>
+	void InsertInto(const T& m) {
 		exec(ToInsertString(m, "", "INSERT INTO"));
 	}
-	void ReplaceInto(const google::protobuf::Message& m) {
+	template<typename T>
+	void ReplaceInto(const T& m) {
 		exec(ToInsertString(m, "", "REPLACE INTO"));
 	}
 	int table_count() {
