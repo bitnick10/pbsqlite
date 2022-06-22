@@ -5,6 +5,7 @@
 #include <google/protobuf/message.h>
 
 namespace pbsqlite {
+
 inline std::vector<std::string> GetColumnNames(const google::protobuf::Message& m) {
 	std::vector<std::string> ret;
 	using namespace google::protobuf;
@@ -184,7 +185,7 @@ public:
 						refl->SetInt64(&m, field, stmt.getColumn(i).getInt64());
 						break;
 					case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
-						refl->SetFloat(&m, field, stmt.getColumn(i).getDouble());
+						refl->SetFloat(&m, field, (float)stmt.getColumn(i).getDouble());
 						break;
 					case google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
 						refl->SetDouble(&m, field, stmt.getColumn(i).getDouble());
@@ -212,7 +213,7 @@ public:
 						refl->SetInt64(&m.buf, field, stmt.getColumn(i).getInt64());
 						break;
 					case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
-						refl->SetFloat(&m.buf, field, stmt.getColumn(i).getDouble());
+						refl->SetFloat(&m.buf, field, (float)stmt.getColumn(i).getDouble());
 						break;
 					case google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
 						refl->SetDouble(&m.buf, field, stmt.getColumn(i).getDouble());
@@ -318,7 +319,7 @@ public:
 					refl->SetInt64(&m, field, stmt.getColumn(i).getInt64());
 					break;
 				case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
-					refl->SetFloat(&m, field, stmt.getColumn(i).getDouble());
+					refl->SetFloat(&m, field, (float)stmt.getColumn(i).getDouble());
 					break;
 				case google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
 					refl->SetDouble(&m, field, stmt.getColumn(i).getDouble());
@@ -333,4 +334,5 @@ public:
 		return ret;
 	}
 };
+
 }
